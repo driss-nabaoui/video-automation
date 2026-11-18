@@ -1,6 +1,8 @@
 # VOIDORA — Automated AI Video Production Pipeline
 
-An end-to-end automated pipeline for discovering topics, generating scripts, producing voiceovers, assembling visual assets, rendering cinematic videos (Shorts and Long-form), and publishing to YouTube.
+> **End-to-end AI video automation system generating Shorts and documentary videos with n8n orchestration and automated YouTube publishing.**
+
+An automated pipeline for discovering topics, generating scripts, producing voiceovers, assembling visual assets, rendering cinematic videos (Shorts and Long-form), and publishing directly to YouTube.
 
 ---
 
