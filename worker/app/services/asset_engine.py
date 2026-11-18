@@ -165,7 +165,7 @@ class AssetEngine:
         target_filename_prefix: str = "nasa"
     ) -> Optional[AssetRecord]:
         """Fetches authentic NASA footage or high-res imagery with rights verification."""
-        media_types = "video,image" if preferred_type == "VIDEO" else "image,video"
+        media_types = "video" if preferred_type == "VIDEO" else "image"
 
         try:
             async with httpx.AsyncClient(timeout=20.0, follow_redirects=True) as client:
@@ -189,6 +189,11 @@ class AssetEngine:
                     item_type = data_entry.get("media_type", "image").upper()
                     coll_href = item.get("href", "")
 
+                    if preferred_type == "IMAGE" and item_type != "IMAGE":
+                        continue
+                    if preferred_type == "VIDEO" and item_type != "VIDEO":
+                        continue
+
                     # Verify license
                     v = LicenseVerifier.verify("NASA", "NASA Public Domain", author=center, title=title)
                     if not v.is_approved:
@@ -199,14 +204,16 @@ class AssetEngine:
                         coll_res = await client.get(coll_href)
                         if coll_res.status_code == 200:
                             files = coll_res.json()
-                            # Select ~orig.mp4 or ~large.mp4 or ~medium.mp4
-                            video_url = next((f for f in files if "~orig.mp4" in f or "~large.mp4" in f or "~medium.mp4" in f), None)
+                            # Prefer medium or small video to avoid downloading multi-gigabyte raw files
+                            video_url = next((f for f in files if "~medium.mp4" in f or "~small.mp4" in f or "~large.mp4" in f), None)
+                            if not video_url:
+                                video_url = next((f for f in files if "~orig.mp4" in f), None)
                             if video_url:
                                 out_name = f"{target_filename_prefix}_{nasa_id[:32]}.mp4"
                                 out_path = settings.visual_assets / out_name
                                 if not out_path.is_file():
                                     dl = await client.get(video_url)
-                                    if dl.status_code == 200 and len(dl.content) > 100000:
+                                    if dl.status_code == 200 and 100000 < len(dl.content) <= 50_000_000:
                                         with open(out_path, "wb") as f_out:
                                             f_out.write(dl.content)
 
@@ -524,9 +531,9 @@ class AssetEngine:
                 for query in candidate_queries:
                     q_lower = query.lower()
                     if any(k in q_lower for k in ["space", "galaxy", "telescope", "star", "hubble", "black hole", "cosmic", "mars", "nebula"]):
-                        record = await self.fetch_nasa_asset(query, preferred_type="VIDEO", target_filename_prefix=prefix)
+                        record = await self.fetch_nasa_asset(query, preferred_type="IMAGE", target_filename_prefix=prefix)
                         if not record:
-                            record = await self.fetch_nasa_asset(query, preferred_type="IMAGE", target_filename_prefix=prefix)
+                            record = await self.fetch_nasa_asset(query, preferred_type="VIDEO", target_filename_prefix=prefix)
                     if not record:
                         record = await self.fetch_wikimedia_asset(query, target_filename_prefix=prefix)
                     if not record and settings.PEXELS_API_KEY:
