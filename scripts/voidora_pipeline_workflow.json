@@ -1,0 +1,295 @@
+{
+  "name": "VOIDORA — AI Video Production Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "voidora-produce",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "webhook-trigger",
+      "name": "Webhook: Start Production"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://video-worker:8000/api/v1/jobs/create",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"mode\": \"AUTOMATIC\",\n  \"format\": \"{{ $json.body.format || 'LONG_FORM' }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        0
+      ],
+      "id": "create-job",
+      "name": "Create Job Ledger"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://video-worker:8000/api/v1/script/generate?niche={{ encodeURIComponent($('Webhook: Start Production').item.json.body.niche || 'Space and Astronomy') }}&title_concept={{ encodeURIComponent($('Webhook: Start Production').item.json.body.title_concept || 'The Great Attractor') }}&target_format={{ $('Webhook: Start Production').item.json.body.format || 'LONG_FORM' }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        0
+      ],
+      "id": "generate-script",
+      "name": "Generate Script & Plan"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://video-worker:8000/api/v1/voice/synthesize",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"job_id\": \"{{ $('Create Job Ledger').item.json.id }}\",\n  \"text\": \"{{ $json.plan.narration_full }}\",\n  \"voice\": \"en-US-ChristopherNeural\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        0
+      ],
+      "id": "synthesize-voice",
+      "name": "Synthesize Neural Voice"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://video-worker:8000/api/v1/subtitles/build",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"job_id\": \"{{ $('Create Job Ledger').item.json.id }}\",\n  \"word_timestamps\": {{ JSON.stringify($json.word_timestamps) }},\n  \"format\": \"{{ $('Webhook: Start Production').item.json.body.format || 'LONG_FORM' }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        0
+      ],
+      "id": "build-subtitles",
+      "name": "Build Subtitles"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://video-worker:8000/api/v1/assets/acquire",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"job_id\": \"{{ $('Create Job Ledger').item.json.id }}\",\n  \"scenes\": {{ JSON.stringify($('Generate Script & Plan').item.json.plan.scenes) }},\n  \"format\": \"{{ $('Webhook: Start Production').item.json.body.format || 'LONG_FORM' }}\"\n}",
+        "options": {
+          "timeout": 360000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        0
+      ],
+      "id": "acquire-assets",
+      "name": "Acquire Visual Assets"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://video-worker:8000/api/v1/render/composite",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"job_id\": \"{{ $('Create Job Ledger').item.json.id }}\",\n  \"voice_audio_path\": \"{{ $('Synthesize Neural Voice').item.json.audio_path }}\",\n  \"subtitles_ass_path\": \"{{ $('Build Subtitles').item.json.ass_path }}\",\n  \"background_music_path\": \"/media/03_music_sfx/cinematic_space/space_drone_deep_void_01.mp3\",\n  \"scenes\": {{ JSON.stringify($json.scenes) }},\n  \"format\": \"{{ $('Webhook: Start Production').item.json.body.format || 'LONG_FORM' }}\"\n}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        0
+      ],
+      "id": "render-composite",
+      "name": "Render FFmpeg Composite"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "qc-check",
+              "leftValue": "={{ $json.qc_passed }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        0
+      ],
+      "id": "qc-gate",
+      "name": "Quality Control Passed?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"SUCCESS\",\n  \"job_id\": \"{{ $('Create Job Ledger').item.json.id }}\",\n  \"title\": \"{{ $('Generate Script & Plan').item.json.plan.title }}\",\n  \"video_path\": \"{{ $('Render FFmpeg Composite').item.json.video_path }}\",\n  \"duration_seconds\": {{ $('Render FFmpeg Composite').item.json.duration_seconds }},\n  \"resolution\": \"{{ $('Render FFmpeg Composite').item.json.resolution }}\",\n  \"qc_passed\": true,\n  \"approval_required\": \"Call voidora_youtube_publisher.py to upload after manual review\",\n  \"command\": \"/opt/video-automation/scripts/voidora_youtube_publisher.py --video-path {{ $('Render FFmpeg Composite').item.json.video_path }} --title '{{ $('Generate Script & Plan').item.json.plan.title }}' --privacy private\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1760,
+        -100
+      ],
+      "id": "respond-success",
+      "name": "Respond: Ready for Review"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"QC_FAILED\",\n  \"job_id\": \"{{ $('Create Job Ledger').item.json.id }}\",\n  \"error\": \"Video rendered but failed quality inspection.\",\n  \"qc_log\": {{ JSON.stringify($('Render FFmpeg Composite').item.json.qc_log) }}\n}",
+        "options": {
+          "responseCode": 422
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1760,
+        100
+      ],
+      "id": "respond-failure",
+      "name": "Respond: QC Failed"
+    }
+  ],
+  "connections": {
+    "Webhook: Start Production": {
+      "main": [
+        [
+          {
+            "node": "Create Job Ledger",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Job Ledger": {
+      "main": [
+        [
+          {
+            "node": "Generate Script & Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Script & Plan": {
+      "main": [
+        [
+          {
+            "node": "Synthesize Neural Voice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Synthesize Neural Voice": {
+      "main": [
+        [
+          {
+            "node": "Build Subtitles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Subtitles": {
+      "main": [
+        [
+          {
+            "node": "Acquire Visual Assets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Acquire Visual Assets": {
+      "main": [
+        [
+          {
+            "node": "Render FFmpeg Composite",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Render FFmpeg Composite": {
+      "main": [
+        [
+          {
+            "node": "Quality Control Passed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quality Control Passed?": {
+      "main": [
+        [
+          {
+            "node": "Respond: Ready for Review",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond: QC Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

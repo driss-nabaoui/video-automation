@@ -1,0 +1,79 @@
+# Environment configuration
+.env
+.env.local
+.env.*.local
+
+# Secrets and credentials
+token.json
+client_secrets.json
+*.pem
+*.key
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Testing & linting
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Databases and backups
+backups/*.tar.gz
+backups/*.sql.gz
+backups/*.sql
+*.sql.gz
+*.tar.gz
+postgres_data/
+
+# Generated runtime media assets (keep folder structure via .gitkeep)
+media/01_raw_inbox/*
+!media/01_raw_inbox/.gitkeep
+media/02_audio_narrations/*
+!media/02_audio_narrations/.gitkeep
+media/03_music_sfx/ambient/*
+!media/03_music_sfx/ambient/.gitkeep
+media/03_music_sfx/cinematic_space/*
+!media/03_music_sfx/cinematic_space/.gitkeep
+media/03_music_sfx/sfx/*
+!media/03_music_sfx/sfx/.gitkeep
+media/04_visual_assets/*
+!media/04_visual_assets/.gitkeep
+media/05_subtitles/*
+!media/05_subtitles/.gitkeep
+media/06_rendered_output/*
+!media/06_rendered_output/.gitkeep
+media/07_thumbnails/*
+!media/07_thumbnails/.gitkeep
+
+# System & editor files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+.idea/

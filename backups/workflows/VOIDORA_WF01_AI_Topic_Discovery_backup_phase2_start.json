@@ -1,0 +1,543 @@
+{
+  "name": "VOIDORA - WF01: Topic Discovery & Gemini AI Analysis",
+  "nodes": [
+    {
+      "parameters": {
+        "feedUrl": "https://www.nasa.gov/rss/dyn/breaking_news.rss",
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyX",
+              "value": 6,
+              "unit": "hours"
+            }
+          ]
+        }
+      },
+      "id": "trigger-nasa-rss",
+      "name": "NASA Breaking News RSS",
+      "type": "n8n-nodes-base.rssFeedReadTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "feedUrl": "https://www.sciencedaily.com/rss/space_time.xml",
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyX",
+              "value": 6,
+              "unit": "hours"
+            }
+          ]
+        }
+      },
+      "id": "trigger-sciencedaily-rss",
+      "name": "ScienceDaily Space RSS",
+      "type": "n8n-nodes-base.rssFeedReadTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "feedUrl": "https://www.smithsonianmag.com/rss/history/",
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyX",
+              "value": 6,
+              "unit": "hours"
+            }
+          ]
+        }
+      },
+      "id": "trigger-smithsonian-history",
+      "name": "Smithsonian History RSS",
+      "type": "n8n-nodes-base.rssFeedReadTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "feedUrl": "https://www.smithsonianmag.com/rss/science-nature/",
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyX",
+              "value": 6,
+              "unit": "hours"
+            }
+          ]
+        }
+      },
+      "id": "trigger-smithsonian-science",
+      "name": "Smithsonian Science RSS",
+      "type": "n8n-nodes-base.rssFeedReadTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "includeOtherFields": true,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "_meta_source",
+              "value": "NASA Breaking News",
+              "type": "string"
+            },
+            {
+              "id": "a2",
+              "name": "_meta_category",
+              "value": "SPACE",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "tag-nasa-metadata",
+      "name": "Tag NASA Source",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        460,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "includeOtherFields": true,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "_meta_source",
+              "value": "ScienceDaily Space & Time",
+              "type": "string"
+            },
+            {
+              "id": "a2",
+              "name": "_meta_category",
+              "value": "SPACE",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "tag-sciencedaily-metadata",
+      "name": "Tag ScienceDaily Source",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        460,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "includeOtherFields": true,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "_meta_source",
+              "value": "Smithsonian Magazine History",
+              "type": "string"
+            },
+            {
+              "id": "a2",
+              "name": "_meta_category",
+              "value": "HISTORY",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "tag-smithsonian-history-metadata",
+      "name": "Tag Smithsonian History",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        460,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "includeOtherFields": true,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "_meta_source",
+              "value": "Smithsonian Magazine Science",
+              "type": "string"
+            },
+            {
+              "id": "a2",
+              "name": "_meta_category",
+              "value": "SCIENCE",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "tag-smithsonian-science-metadata",
+      "name": "Tag Smithsonian Science",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        460,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Clean HTML entities and markup\nfunction cleanText(text) {\n  if (!text) return \"\";\n  return text\n    .replace(/<[^>]*>/g, \" \")\n    .replace(/&nbsp;/g, \" \")\n    .replace(/&amp;/g, \"&\")\n    .replace(/&lt;/g, \"<\")\n    .replace(/&gt;/g, \">\")\n    .replace(/&quot;/g, \"\\\"\")\n    .replace(/&#39;/g, \"'\")\n    .replace(/\\s+/g, \" \")\n    .trim();\n}\n\nconst seenUrls = new Set();\nconst seenTitles = new Set();\nconst normalizedItems = [];\n\nfor (const item of $input.all()) {\n  try {\n    const data = item.json || {};\n    const rawTitle = data.title || data[\"title:\"] || \"\";\n    const title = cleanText(String(rawTitle));\n    const rawUrl = data.link || data.guid || data.origlink || \"\";\n    const sourceUrl = (typeof rawUrl === \"string\") ? rawUrl.trim() : (data.guid?.[\"#text\"] || \"\");\n    \n    if (!title || !sourceUrl) continue;\n    \n    const normalizedTitle = title.toLowerCase().replace(/[^a-z0-9]/g, \"\");\n    if (seenUrls.has(sourceUrl) || seenTitles.has(normalizedTitle)) {\n      continue;\n    }\n    seenUrls.add(sourceUrl);\n    seenTitles.add(normalizedTitle);\n    \n    const rawDesc = data.contentSnippet || data.description || data.summary || data.content || \"\";\n    const description = cleanText(String(rawDesc));\n    \n    let pubDateIso = new Date().toISOString();\n    const rawDate = data.pubDate || data.isoDate || data.date;\n    if (rawDate) {\n      try {\n        const parsed = new Date(rawDate);\n        if (!isNaN(parsed.getTime())) {\n          pubDateIso = parsed.toISOString();\n        }\n      } catch (e) {}\n    }\n    \n    const sourceName = data._meta_source || \"RSS Source\";\n    let category = data._meta_category || \"SCIENCE\";\n    \n    const fullText = (title + \" \" + description).toLowerCase();\n    if (fullText.includes(\"mystery\") || fullText.includes(\"unexplained\") || fullText.includes(\"bizarre\") || fullText.includes(\"enigma\") || fullText.includes(\"anomal\")) {\n      category = \"MYSTERIES\";\n    } else if (fullText.includes(\"ancient\") || fullText.includes(\"archaeolog\") || fullText.includes(\"century\") || fullText.includes(\"civilization\") || fullText.includes(\"histor\")) {\n      category = \"HISTORY\";\n    } else if (fullText.includes(\"space\") || fullText.includes(\"nasa\") || fullText.includes(\"galaxy\") || fullText.includes(\"planet\") || fullText.includes(\"asteroid\") || fullText.includes(\"telescope\") || fullText.includes(\"cosm\")) {\n      category = \"SPACE\";\n    }\n    \n    normalizedItems.push({\n      json: {\n        title,\n        source: sourceName,\n        source_url: sourceUrl,\n        original_article_url: sourceUrl,\n        publication_date: pubDateIso,\n        description,\n        category,\n        discovery_timestamp: new Date().toISOString()\n      }\n    });\n  } catch (err) {\n    continue;\n  }\n}\n\nreturn normalizedItems;\n"
+      },
+      "id": "node-normalize-deduplicate",
+      "name": "Normalize & Deduplicate Articles",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        740,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst scoredItems = [];\n\nconst HIGH_IMPACT_HOOKS = [\n  \"mystery\", \"unexplained\", \"secret\", \"ancient\", \"origin\", \"discovery\",\n  \"bizarre\", \"first time\", \"unprecedented\", \"hidden\", \"black hole\",\n  \"deep space\", \"alien\", \"extinction\", \"cataclysm\", \"lost civilization\",\n  \"forbidden\", \"shocking\", \"quantum\", \"rewrites history\", \"paradox\",\n  \"dark matter\", \"voyager\", \"james webb\", \"exoplanet\", \"tomb\", \"ruins\"\n];\n\nconst MODERATE_ENGAGEMENT_HOOKS = [\n  \"reveals\", \"breakthrough\", \"new evidence\", \"astronomers\", \"scientists find\",\n  \"anomaly\", \"signal\", \"danger\", \"collision\", \"investigation\", \"uncovered\",\n  \"rare\", \"unknown\", \"deep sea\", \"fossil\", \"prehistoric\", \"expedition\"\n];\n\nconst LOW_VALUE_ADMIN_TERMS = [\n  \"quarterly report\", \"budget\", \"meeting\", \"conference\", \"appointment\",\n  \"administrator\", \"statement on\", \"press release\", \"contract awarded\",\n  \"briefing\", \"schedule update\", \"symposium\", \"advisory\", \"grant\"\n];\n\nfor (const item of items) {\n  try {\n    const d = item.json || {};\n    const title = d.title || \"\";\n    const description = d.description || \"\";\n    const combinedText = (title + \" \" + description).toLowerCase();\n    \n    let score = 50;\n    const scoreBreakdown = [\"Base neutral score: +50\"];\n    \n    let highImpactHits = 0;\n    for (const kw of HIGH_IMPACT_HOOKS) {\n      if (combinedText.includes(kw)) highImpactHits++;\n    }\n    if (highImpactHits > 0) {\n      const boost = Math.min(25, highImpactHits * 8);\n      score += boost;\n      scoreBreakdown.push(`High curiosity hook keywords (${highImpactHits} match): +${boost}`);\n    }\n    \n    let modImpactHits = 0;\n    for (const kw of MODERATE_ENGAGEMENT_HOOKS) {\n      if (combinedText.includes(kw)) modImpactHits++;\n    }\n    if (modImpactHits > 0) {\n      const boost = Math.min(15, modImpactHits * 5);\n      score += boost;\n      scoreBreakdown.push(`Scientific discovery terms (${modImpactHits} match): +${boost}`);\n    }\n    \n    let adminHits = 0;\n    for (const term of LOW_VALUE_ADMIN_TERMS) {\n      if (combinedText.includes(term)) adminHits++;\n    }\n    if (adminHits > 0) {\n      const penalty = adminHits * 20;\n      score -= penalty;\n      scoreBreakdown.push(`Administrative/routine notice terms (${adminHits} match): -${penalty}`);\n    }\n    \n    if (description.length >= 200) {\n      score += 10;\n      scoreBreakdown.push(\"Rich editorial summary (>=200 chars): +10\");\n    } else if (description.length < 50) {\n      score -= 10;\n      scoreBreakdown.push(\"Very brief summary (<50 chars): -10\");\n    }\n    \n    if (d.publication_date) {\n      try {\n        const pubTime = new Date(d.publication_date).getTime();\n        if (!isNaN(pubTime)) {\n          const hoursOld = (Date.now() - pubTime) / (1000 * 60 * 60);\n          if (hoursOld <= 24 && hoursOld >= 0) {\n            score += 10;\n            scoreBreakdown.push(\"Recent publication (<24h): +10\");\n          } else if (hoursOld <= 72 && hoursOld >= 0) {\n            score += 5;\n            scoreBreakdown.push(\"Recent publication (<72h): +5\");\n          }\n        }\n      } catch (e) {}\n    }\n    \n    const finalScore = Math.max(0, Math.min(100, Math.round(score)));\n    const isLongCandidate = finalScore >= 65 && description.length >= 100;\n    const isShortsCandidate = finalScore >= 50 && (highImpactHits >= 1 || modImpactHits >= 1);\n    const status = finalScore >= 70 ? \"candidate_for_research\" : \"discovered\";\n    \n    scoredItems.push({\n      json: {\n        ...d,\n        editorial_priority_score: finalScore,\n        score_type: \"heuristic_editorial_score\",\n        score_notes: \"Heuristic documentary potential score based on narrative tension and discovery keywords; does not reflect actual YouTube audience analytics.\",\n        score_breakdown: scoreBreakdown,\n        is_long_documentary_candidate: isLongCandidate,\n        is_shorts_candidate: isShortsCandidate,\n        recommended_format: isLongCandidate ? \"8-12 min Long Documentary\" : (isShortsCandidate ? \"60s Vertical Short\" : \"Background Archive\"),\n        status: status\n      }\n    });\n  } catch (err) {\n    continue;\n  }\n}\n\nscoredItems.sort((a, b) => b.json.editorial_priority_score - a.json.editorial_priority_score);\nreturn scoredItems;\n"
+      },
+      "id": "node-heuristic-scorer",
+      "name": "Calculate Editorial Priority Score",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        980,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.editorial_priority_score }}",
+              "rightValue": 70,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "filter-priority-candidates",
+      "name": "Filter High-Priority Candidates",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1220,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Limit to top 5 candidates per run to protect API quotas\nconst candidates = $input.all();\nreturn candidates.slice(0, 5);\n"
+      },
+      "id": "limit-candidates",
+      "name": "Quota Guard: Limit Top 5",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1460,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nreturn items.map(entry => {\n  const item = entry.json || {};\n  const promptText = `You are the Executive Senior Science & Documentary Editor for VOIDORA, a prestigious English documentary channel covering Space, Science, History, and Mysteries.\n\nAnalyze this candidate research topic and produce a structured pre-production editorial brief:\n\nTopic Title: ${item.title || \"Untitled\"}\nSource: ${item.source || \"Unknown\"}\nCategory: ${item.category || \"SCIENCE\"}\nCanonical URL: ${item.original_article_url || item.source_url || \"\"}\nSummary: ${item.description || \"No summary provided\"}\n\nREQUIREMENTS:\n1. Provide an insightful topic_analysis explaining why this topic captures human curiosity.\n2. Formulate a unique documentary_angle (e.g. historical mystery, cosmic paradigm shift, existential inquiry).\n3. Create a compelling suggested_title for YouTube (dignified, intriguing, non-clickbait).\n4. Provide exactly 3 captivating storytelling_hooks for the video cold open.\n5. List specific facts_requiring_verification (empirical or historical claims that must be confirmed).\n6. Suggest real primary_research_sources (academic journals, NASA data archives, peer-reviewed institutions).\n7. Rate long_video_potential (HIGH/MEDIUM/LOW with brief justification).\n8. Rate shorts_potential (HIGH/MEDIUM/LOW with brief justification).\n\nReturn STRICTLY a JSON object matching the requested schema.`;\n\n  return {\n    json: {\n      ...item,\n      gemini_request_payload: {\n        contents: [\n          {\n            parts: [{ text: promptText }]\n          }\n        ],\n        generationConfig: {\n          response_mime_type: \"application/json\",\n          temperature: 0.3\n        }\n      }\n    }\n  };\n});\n"
+      },
+      "id": "build-gemini-prompt",
+      "name": "Build Editorial Prompt Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.gemini_request_payload) }}",
+        "options": {
+          "timeout": 30000,
+          "retry": {
+            "retry": {
+              "maxTries": 3,
+              "waitBetweenTries": 4000
+            }
+          }
+        }
+      },
+      "id": "gemini-topic-analyst",
+      "name": "Gemini AI Topic Analyst",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1900,
+        360
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "voidora-gemini-credential",
+          "name": "Google Gemini API (VOIDORA)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nlet promptItems = [];\n\ntry {\n  promptItems = $('Build Editorial Prompt Payload').all();\n} catch (e) {\n  promptItems = [];\n}\n\nconst enrichedCandidates = [];\n\nfor (let i = 0; i < items.length; i++) {\n  const httpResponse = items[i].json || {};\n  const originalArticle = promptItems[i]?.json ? { ...promptItems[i].json } : {};\n  \n  let aiData = {};\n  try {\n    const rawResponse = httpResponse.candidates?.[0]?.content?.parts?.[0]?.text || \"{}\";\n    aiData = JSON.parse(rawResponse);\n  } catch (e) {\n    aiData = {\n      parsing_error: true,\n      raw_output: httpResponse.candidates?.[0]?.content?.parts?.[0]?.text || \"Failed to parse JSON\"\n    };\n  }\n\n  // Remove the temporary prompt payload from final output\n  delete originalArticle.gemini_request_payload;\n\n  enrichedCandidates.push({\n    json: {\n      ...originalArticle,\n      pipeline_stage: \"ai_analysis_complete\",\n      ai_editorial_dossier: {\n        topic_analysis: aiData.topic_analysis || \"Analysis unavailable\",\n        documentary_angle: aiData.documentary_angle || \"Angle unavailable\",\n        suggested_title: aiData.suggested_title || originalArticle.title || \"Untitled\",\n        storytelling_hooks: Array.isArray(aiData.storytelling_hooks) ? aiData.storytelling_hooks : [],\n        facts_requiring_verification: Array.isArray(aiData.facts_requiring_verification) ? aiData.facts_requiring_verification : [],\n        primary_research_sources: Array.isArray(aiData.primary_research_sources) ? aiData.primary_research_sources : [],\n        long_video_potential: aiData.long_video_potential || \"MEDIUM\",\n        shorts_potential: aiData.shorts_potential || \"MEDIUM\"\n      }\n    }\n  });\n}\n\nreturn enrichedCandidates;\n"
+      },
+      "id": "parse-gemini-output",
+      "name": "Assemble AI Editorial Dossier",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2140,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Discovered archive output\nconst discovered = $input.all();\nreturn discovered.map(item => ({\n  json: {\n    ...item.json,\n    pipeline_stage: \"archived_discovery\",\n    editorial_note: \"Discovered topic stored in background archive (below research threshold).\"\n  }\n}));"
+      },
+      "id": "output-discovered-archive",
+      "name": "Format Discovered Archive",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1460,
+        560
+      ]
+    }
+  ],
+  "connections": {
+    "NASA Breaking News RSS": {
+      "main": [
+        [
+          {
+            "node": "Tag NASA Source",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ScienceDaily Space RSS": {
+      "main": [
+        [
+          {
+            "node": "Tag ScienceDaily Source",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Smithsonian History RSS": {
+      "main": [
+        [
+          {
+            "node": "Tag Smithsonian History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Smithsonian Science RSS": {
+      "main": [
+        [
+          {
+            "node": "Tag Smithsonian Science",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag NASA Source": {
+      "main": [
+        [
+          {
+            "node": "Normalize & Deduplicate Articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag ScienceDaily Source": {
+      "main": [
+        [
+          {
+            "node": "Normalize & Deduplicate Articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag Smithsonian History": {
+      "main": [
+        [
+          {
+            "node": "Normalize & Deduplicate Articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag Smithsonian Science": {
+      "main": [
+        [
+          {
+            "node": "Normalize & Deduplicate Articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize & Deduplicate Articles": {
+      "main": [
+        [
+          {
+            "node": "Calculate Editorial Priority Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Editorial Priority Score": {
+      "main": [
+        [
+          {
+            "node": "Filter High-Priority Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter High-Priority Candidates": {
+      "main": [
+        [
+          {
+            "node": "Quota Guard: Limit Top 5",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Discovered Archive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quota Guard: Limit Top 5": {
+      "main": [
+        [
+          {
+            "node": "Build Editorial Prompt Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Editorial Prompt Payload": {
+      "main": [
+        [
+          {
+            "node": "Gemini AI Topic Analyst",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini AI Topic Analyst": {
+      "main": [
+        [
+          {
+            "node": "Assemble AI Editorial Dossier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Africa/Casablanca",
+    "saveExecutionProgress": true,
+    "saveManualExecutions": true
+  },
+  "versionId": "3-voidora-wf01-gemini-ai",
+  "id": "voidora-wf01-gemini-ai",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": [
+    {
+      "name": "VOIDORA"
+    },
+    {
+      "name": "Topic Discovery"
+    },
+    {
+      "name": "Gemini AI"
+    }
+  ]
+}
